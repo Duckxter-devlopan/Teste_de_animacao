@@ -3,38 +3,235 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Animação no GitHub Pages</title>
+  <title>Animação - Bolas Interagindo</title>
   <style>
-    body {
+    * {
       margin: 0;
-      height: 100vh;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #0d1117;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
-      background-color: #0d1117;
-      overflow: hidden;
+      height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #c9d1d9;
     }
 
-    .esfera {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      background: linear-gradient(45deg, #58a6ff, #bc8cff);
-      box-shadow: 0 0 30px rgba(88, 166, 255, 0.5);
-      animation: flutuar 3s ease-in-out infinite alternate;
+    canvas {
+      background-color: #161b22;
+      border: 2px solid #30363d;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      max-width: 95vw;
     }
 
-    @keyframes flutuar {
-      0% {
-        transform: translateY(-30px) scale(1);
-      }
-      100% {
-        transform: translateY(30px) scale(1.15);
-      }
+    button {
+      margin-top: 16px;
+      padding: 8px 20px;
+      background-color: #238636;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #2ea043;
     }
   </style>
 </head>
 <body>
-  <div class="esfera"></div>
+
+  <canvas id="palco" width="700" height="400"></canvas>
+  <button onclick="reiniciarAnimacao()">Repetir Animação</button>
+
+  <script>
+    const canvas = document.getElementById('palco');
+    const ctx = canvas.getContext('2d');
+
+    const chaoY = canvas.height - 60;
+    const gravidade = 0.55;
+
+    let bola1, bola2, frameCount, mostrarBalao;
+
+    function reiniciarAnimacao() {
+      frameCount = 0;
+      mostrarBalao = false;
+
+      // Bola 1: Quica continuamente no meio do quadro
+      bola1 = {
+        x: canvas.width / 2 - 40,
+        y: 120,
+        raio: 28,
+        vy: 0,
+        forcaPulo: -13.5,
+        cor: '#58a6ff',
+        escalaX: 1,
+        escalaY: 1
+      };
+
+      // Bola 2: Começa fora da tela (à direita) e entra depois
+      bola2 = {
+        x: canvas.width + 50,
+        y: chaoY - 28,
+        destinoX: canvas.width / 2 + 55,
+        raio: 28,
+        cor: '#f78166',
+        entrando: false,
+        pulinhoY: 0,
+        vy: 0
+      };
+    }
+
+    function desenharChao() {
+      ctx.beginPath();
+      ctx.moveTo(40, chaoY);
+      ctx.lineTo(canvas.width - 40, chaoY);
+      ctx.strokeStyle = '#30363d';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    function atualizarBola1() {
+      bola1.vy += gravidade;
+      bola1.y += bola1.vy;
+
+      // Volta suavemente ao formato redondo no ar
+      bola1.escalaX += (1 - bola1.escalaX) * 0.15;
+      bola1.escalaY += (1 - bola1.escalaY) * 0.15;
+
+      // Colisão com o chão
+      if (bola1.y + bola1.raio >= chaoY) {
+        bola1.y = chaoY - bola1.raio;
+        bola1.vy = bola1.forcaPulo;
+
+        // Efeito de amassar (squash) ao bater no chão
+        bola1.escalaX = 1.25;
+        bola1.escalaY = 0.75;
+      }
+    }
+
+    function atualizarBola2() {
+      // Após ~2,5 segundos (150 frames a 60fps), a segunda bola entra
+      if (frameCount > 150) {
+        bola2.entrando = true;
+      }
+
+      if (bola2.entrando) {
+        // Desliza suavemente até o destino
+        const distancia = bola2.destinoX - bola2.x;
+        if (Math.abs(distancia) > 0.5) {
+          bola2.x += distancia * 0.06;
+        } else {
+          bola2.x = bola2.destinoX;
+          // Quando chega no lugar, dá um pulinho e mostra o texto
+          if (!mostrarBalao) {
+            mostrarBalao = true;
+            bola2.vy = -6;
+          }
+        }
+      }
+
+      // Física do pulinho de saudação da Bola 2
+      if (mostrarBalao) {
+        bola2.vy += gravidade;
+        bola2.y += bola2.vy;
+        if (bola2.y + bola2.raio >= chaoY) {
+          bola2.y = chaoY - bola2.raio;
+          bola2.vy = 0;
+        }
+      }
+    }
+
+    function desenharBola(b, escalaX = 1, escalaY = 1) {
+      // Sombra no chão
+      const alturaDoChao = chaoY - (b.y + b.raio);
+      const fatorSombra = Math.max(0.2, 1 - alturaDoChao / 250);
+      ctx.beginPath();
+      ctx.ellipse(b.x, chaoY + 4, b.raio * fatorSombra, 5 * fatorSombra, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.fill();
+
+      // Corpo da bola
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.scale(escalaX, escalaY);
+      
+      ctx.beginPath();
+      ctx.arc(0, 0, b.raio, 0, Math.PI * 2);
+      ctx.fillStyle = b.cor;
+      ctx.fill();
+
+      // Brilho simples para dar volume
+      ctx.beginPath();
+      ctx.arc(-b.raio * 0.3, -b.raio * 0.3, b.raio * 0.25, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function desenharBalaoFala(x, y, texto) {
+      ctx.font = 'bold 16px "Segoe UI", sans-serif';
+      const larguraTexto = ctx.measureText(texto).width;
+      const paddingX = 16;
+      const larguraCaixa = larguraTexto + paddingX * 2;
+      const alturaCaixa = 38;
+      const caixaX = x - larguraCaixa / 2;
+      const caixaY = y - alturaCaixa - 18;
+
+      // Fundo do balão
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(caixaX, caixaY, larguraCaixa, alturaCaixa, 10);
+      ctx.fill();
+
+      // Triângulo apontando para a bola
+      ctx.beginPath();
+      ctx.moveTo(x - 6, caixaY + alturaCaixa);
+      ctx.lineTo(x + 6, caixaY + alturaCaixa);
+      ctx.lineTo(x, caixaY + alturaCaixa + 8);
+      ctx.closePath();
+      ctx.fill();
+
+      // Texto
+      ctx.fillStyle = '#0d1117';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(texto, x, caixaY + alturaCaixa / 2);
+    }
+
+    function loop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      desenharChao();
+
+      atualizarBola1();
+      atualizarBola2();
+
+      desenharBola(bola1, bola1.escalaX, bola1.escalaY);
+      desenharBola(bola2);
+
+      if (mostrarBalao) {
+        desenharBalaoFala(bola2.x, bola2.y - bola2.raio, 'oi , tudo bem?');
+      }
+
+      frameCount++;
+      requestAnimationFrame(loop);
+    }
+
+    // Inicia
+    reiniciarAnimacao();
+    loop();
+  </script>
 </body>
 </html>
